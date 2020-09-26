@@ -78,7 +78,7 @@ void *handleConnection(void *my_thread_connect)
                 {
                     write(thread_connect->socket, "HTTP/1.0 200 OK\n\n", 17);
                     write(thread_connect->socket, "Hello World\n", 12);
-                    fsync(thread_connect->socket);
+                    close(thread_connect->socket);
                 }
             }
         }
