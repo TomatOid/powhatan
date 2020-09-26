@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <semaphore.h>
 
 #define MAX_THREADS_COUNT 16
@@ -27,6 +28,7 @@ pthread_cond_t pool_push_cond = PTHREAD_COND_INITIALIZER;
 
 void popSockToFreeThread(int socket)
 {
+    puts("got a connection");
     // wait untill there are free threads
     pthread_mutex_lock(&pool_push_lock);
     while (!thread_pool_top) pthread_cond_wait(&pool_push_cond, &pool_push_lock); // there is a possible edge case where this times out
@@ -56,9 +58,10 @@ void *handleConnection(void *my_thread_connect)
         sem_post(&pool_sem);
         while (!thread_connect->busy) pthread_cond_wait(&thread_connect->start, &thread_connect->lock);
         pthread_mutex_unlock(&thread_connect->lock);
+        puts("new request");
         memset(&message_buffer, 0, MAX_MESSAGE_CHARS);
         if (read(thread_connect->socket, message_buffer, MAX_MESSAGE_CHARS - 1) <= 0) // length - 1 to guarentee null termination
-            fprintf("There was an error reading from the socket\n");
+            fprintf(stderr, "There was an error reading from the socket\n");
         else
         {
             request_lines[0] = strtok(message_buffer, " \t\n"); 
@@ -67,13 +70,15 @@ void *handleConnection(void *my_thread_connect)
                 request_lines[1] = strtok(NULL, " \t");
                 request_lines[2] = strtok(NULL, " \t\n");
                 // Now check if uncompatible protocol
-                if (strncmp(request_lines[2], "HTTP/1.0", 8) != 0 && strncmp(reqest_lines[2], "HTTP/1.1", 8) != 0)
+                if (!request_lines[2] || strncmp(request_lines[2], "HTTP/1.0", 8) != 0 && strncmp(request_lines[2], "HTTP/1.1", 8) != 0)
                 {
-                    write(thread_connect->socket, "HTTP/1.0 400 Bad Request\n", 26);
+                    write(thread_connect->socket, "HTTP/1.0 400 Bad Request\n", 25);
                 }
                 else
                 {
-                    write(thread_connect->socket, "HTTP/1.0 200 OK\n\n", 19);
+                    write(thread_connect->socket, "HTTP/1.0 200 OK\n\n", 17);
+                    write(thread_connect->socket, "Hello World\n", 12);
+                    fsync(thread_connect->socket);
                 }
             }
         }
@@ -83,14 +88,15 @@ void *handleConnection(void *my_thread_connect)
 int main()
 {
     struct sockaddr_in client_address;
-    struct sockaddr_in server_address = { .sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY, .sin_port = htons(80); };
+    struct sockaddr_in server_address = { .sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY, .sin_port = htons(8888) };
 
     int listener = socket(AF_INET, SOCK_STREAM, 0);
-    if (bind(listener, (struct sockaddt *)&server_address, sizeof(server_address))) { puts("Error binding."); exit(EXIT_FAILURE); }
+    if (bind(listener, (struct sockaddr *)&server_address, sizeof(server_address))) { puts("Error binding."); exit(EXIT_FAILURE); }
 
+    sem_init(&pool_sem, 0, 1);
     for (int i = 0; i < MAX_THREADS_COUNT; i++)
     {
-        thread_connections[i] = { .lock = PTHREAD_MUTEX_INITIALIZER, .start = PTHREAD_COND_INITALIZER };
+        thread_connections[i] = (ThreadConnection) { .lock = PTHREAD_MUTEX_INITIALIZER, .start = PTHREAD_COND_INITIALIZER };
         pthread_create(&thread_connections[i].thread, NULL, handleConnection, &thread_connections[i]);
     }
 
