@@ -5,10 +5,12 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <semaphore.h>
+#include <signal.h>
+#include <time.h>
 
 #define MAX_THREADS_COUNT 16
 #define MAX_MESSAGE_CHARS 65536
+#define FILES_COUNT sizeof(file_names) / sizeof(char *)
 
 typedef struct
 {
@@ -25,12 +27,27 @@ size_t thread_pool_top = 0;
 pthread_mutex_t pool_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t pool_push_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_push_cond = PTHREAD_COND_INITIALIZER;
+int listener;
+
+const char *file_names[] = { "index.html" };
+char *file_buffers[FILES_COUNT];
+int file_buffer_sizes[FILES_COUNT];
+int default_file = 0;
+
+// this assumes it is already locked
+int waitFor(pthread_cond_t *condition, pthread_mutex_t *lock, int wait_ms)
+{
+    struct timespec time_spec;
+    clock_gettime(CLOCK_REALTIME, &time_spec);
+    time_spec.tv_nsec += 1000000L * (long)wait_ms;
+    return pthread_cond_timedwait(condition, lock, &time_spec);
+}
 
 void popSockToFreeThread(int socket)
 {
     // wait untill there are free threads
     pthread_mutex_lock(&pool_push_lock);
-    while (!thread_pool_top) pthread_cond_wait(&pool_push_cond, &pool_push_lock); // there is a possible edge case where this times out
+    while (!thread_pool_top) waitFor(&pool_push_cond, &pool_push_lock, 50); // there is a possible edge case where this times out
     pthread_mutex_unlock(&pool_push_lock); 
     
     // now pop the thread from the pool and signal it
@@ -75,12 +92,62 @@ void *threadFunction(void *my_thread_connect)
                 }
                 else
                 {
-                    write(thread_connect->socket, "HTTP/1.0 200 OK\n\n", 17);
-                    write(thread_connect->socket, "Hello World\n", 12);
+                    int file = -1;
+                    if (strcmp(request_lines[1], "/\0") == 0)
+                    {
+                        file = default_file;
+                    }
+                    else if (request_lines[1][0])
+                    {
+                        for (int i = 0; i < FILES_COUNT; i++)
+                        {
+                            if (strcmp(request_lines[1] + 1, file_names[i]) == 0)
+                            {
+                                file = i;
+                                break;
+                            }
+                        }
+                    }
+                    if (file < 0)
+                    {
+                        write(thread_connect->socket, "HTTP/1.0 404 Not Found\n\n", 24);
+                    }
+                    else
+                    {
+                        write(thread_connect->socket, "HTTP/1.0 200 OK\n\n", 17);
+                        write(thread_connect->socket, file_buffers[file], file_buffer_sizes[file]);
+                    }
                     close(thread_connect->socket);
                 }
             }
         }
+    }
+}
+
+void exitFunction()
+{
+    close(listener);
+}
+
+void loadFiles()
+{
+    for (int i = 0; i < FILES_COUNT; i++)
+    {
+        FILE *stream = fopen(file_names[i], "r");
+        
+        if (!stream)
+        {
+            fprintf(stderr, "Error loading file: %s, aborting!\n", file_names[i]);
+            exit(EXIT_FAILURE);
+        }
+        
+        // get the length of the file so we know how much to allocate
+        fseek(stream, 0, SEEK_END);
+        file_buffer_sizes[i] = ftell(stream);
+        file_buffers[i] = malloc(file_buffer_sizes[i]);
+        rewind(stream);
+        fread(file_buffers[i], 1, file_buffer_sizes[i], stream);
+        fclose(stream);
     }
 }
 
@@ -89,7 +156,7 @@ int main()
     struct sockaddr_in client_address;
     struct sockaddr_in server_address = { .sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY, .sin_port = htons(8888) };
 
-    int listener = socket(AF_INET, SOCK_STREAM, 0);
+    listener = socket(AF_INET, SOCK_STREAM, 0);
     if (bind(listener, (struct sockaddr *)&server_address, sizeof(server_address))) { puts("Error binding."); exit(EXIT_FAILURE); }
 
     for (int i = 0; i < MAX_THREADS_COUNT; i++)
@@ -98,6 +165,9 @@ int main()
         pthread_create(&thread_connections[i].thread, NULL, threadFunction, &thread_connections[i]);
     }
 
+    loadFiles();
+
+    signal(SIGTERM, exitFunction);
     listen(listener, 10000);
     
     for (;;)
