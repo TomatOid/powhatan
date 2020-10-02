@@ -13,6 +13,30 @@
 #define FILES_COUNT sizeof(file_names) / sizeof(char *)
 #define PORT 8888
 
+/*
+* HTTP Structs*
+*/
+
+typedef struct {
+    char * method;
+    char * url;
+} Request;
+
+typedef struct {
+    int status_code;
+    char * data;
+    long data_length; // Required for binary files. Must keep the size of the file.
+    char * data_type;
+} Response;
+
+Request getRequest(char * read_buf, long size);
+Response createErrorMsg(int status_code, char * data);
+int sendResponse(Response response_data, int request);
+
+/**
+* Threading Functions and Structures below
+*/
+
 typedef struct
 {
     pthread_mutex_t lock;
@@ -63,6 +87,9 @@ void *threadFunction(void *my_thread_connect)
 {
     char message_buffer[MAX_MESSAGE_CHARS];
     char *request_lines[3];
+    Request request_data;
+    Response response_data;
+
     ThreadConnection *thread_connect = my_thread_connect;
     for (;;)
     {
@@ -81,6 +108,9 @@ void *threadFunction(void *my_thread_connect)
             fprintf(stderr, "There was an error reading from the socket\n");
         else
         {
+            request_data = getRequest(message_buffer, MAX_MESSAGE_CHARS);
+            
+
             request_lines[0] = strtok(message_buffer, " \t\n"); 
             if (strncmp(request_lines[0], "GET\0", 4) == 0)
             {
@@ -153,35 +183,27 @@ void loadFiles()
 }
 
 /**
-* HTTP Methods and structs
+* HTTP Methods
 */
 
-struct request {
-	char * method;
-	char * url;
-};
-
-struct response {
-	int status_code;
-	char * data;
-	long data_length; // Required for binary files. Must keep the size of the file.
-	char * data_type;
-};
-
 // Does nothing right now.
-struct request get_request(char * read_buf, long size) {
-	struct request request_data;
+Request getRequest(char * read_buf, long size) {
+	Request request_data;
 	
 	return request_data;
 }
 
-struct response create_error_msg(int status_code, char * data) {
-	struct response response_data;
+Response createErrorMsg(int status_code, char * data) {
+	Response response_data;
 	response_data.status_code = status_code;
 	response_data.data = data;
 	response_data.data_length = strlen(data); // This line is why we can only use this method for error messages. If used with binary files, it will probably cut off before the end because of null character.
 	response_data.data_type = "text/plain"; // could be updated later
 	return response_data;
+}
+
+int sendResponse(Response response_data, int request) {
+	return -1; // Error not implemented
 }
 
 int main()
