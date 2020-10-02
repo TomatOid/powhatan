@@ -135,6 +135,9 @@ void *threadFunction(void *my_thread_connect)
 Request getRequest(char * read_buf, long size) {
     Request request_data;
     
+    request_data.method = strtok(read_buf, " \t");
+    request_data.filename = strtok(NULL, " \t\n");
+
     return request_data;
 }
 
