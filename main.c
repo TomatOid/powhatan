@@ -11,6 +11,7 @@
 #define MAX_THREADS_COUNT 16
 #define MAX_MESSAGE_CHARS 65536
 #define FILES_COUNT sizeof(file_names) / sizeof(char *)
+#define PORT 8888
 
 typedef struct
 {
@@ -88,7 +89,7 @@ void *threadFunction(void *my_thread_connect)
                 // Now check if uncompatible protocol
                 if (!request_lines[2] || strncmp(request_lines[2], "HTTP/1.0", 8) != 0 && strncmp(request_lines[2], "HTTP/1.1", 8) != 0)
                 {
-                    write(thread_connect->socket, "HTTP/1.0 400 Bad Request\n", 25);
+                    write(thread_connect->socket, "HTTP/1.0 505 HTTP Version not supported\n", 40);
                 }
                 else
                 {
@@ -151,10 +152,42 @@ void loadFiles()
     }
 }
 
+/**
+* HTTP Methods and structs
+*/
+
+struct request {
+	char * method;
+	char * url;
+};
+
+struct response {
+	int status_code;
+	char * data;
+	long data_length; // Required for binary files. Must keep the size of the file.
+	char * data_type;
+};
+
+// Does nothing right now.
+struct request get_request(char * read_buf, long size) {
+	struct request request_data;
+	
+	return request_data;
+}
+
+struct response create_error_msg(int status_code, char * data) {
+	struct response response_data;
+	response_data.status_code = status_code;
+	response_data.data = data;
+	response_data.data_length = strlen(data); // This line is why we can only use this method for error messages. If used with binary files, it will probably cut off before the end because of null character.
+	response_data.data_type = "text/plain"; // could be updated later
+	return response_data;
+}
+
 int main()
 {
     struct sockaddr_in client_address;
-    struct sockaddr_in server_address = { .sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY, .sin_port = htons(8888) };
+    struct sockaddr_in server_address = { .sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY, .sin_port = htons(PORT) };
 
     listener = socket(AF_INET, SOCK_STREAM, 0);
     if (bind(listener, (struct sockaddr *)&server_address, sizeof(server_address))) { puts("Error binding."); exit(EXIT_FAILURE); }
