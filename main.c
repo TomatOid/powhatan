@@ -1,12 +1,3 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <signal.h>
-#include <time.h>
 #include "sparrow.h"
 
 #define MAX_THREADS_COUNT 16
@@ -134,6 +125,30 @@ void *threadFunction(void *my_thread_connect)
             }
         }
     }
+}
+
+/**
+* HTTP Methods
+*/
+
+// Does nothing right now.
+Request getRequest(char * read_buf, long size) {
+    Request request_data;
+    
+    return request_data;
+}
+
+Response createErrorMsg(int status_code, char * data) {
+    Response response_data;
+    response_data.status_code = status_code;
+    response_data.data = data;
+    response_data.data_length = strlen(data); // This line is why we can only use this method for error messages. If used with binary files, it will probably cut off before the end because of null character.
+    response_data.data_type = "text/plain"; // could be updated later
+    return response_data;
+}
+
+int sendResponse(Response response_data, int request) {
+    return -1; // Error not implemented
 }
 
 void exitFunction()
