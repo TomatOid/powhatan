@@ -8,7 +8,7 @@ Run:
 ```git clone https://github.com/TomatOid/powhatan.git```
 to download the repository. Then run, ```cd powhatan```. Then ```./build.sh```
 
-### Package Manager (expiremental)
+### Package Manager (planned)
 ```sudo apt install powhatan```
 
 ## Running
