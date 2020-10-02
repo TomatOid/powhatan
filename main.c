@@ -11,6 +11,7 @@
 #define MAX_THREADS_COUNT 16
 #define MAX_MESSAGE_CHARS 65536
 #define FILES_COUNT sizeof(file_names) / sizeof(char *)
+#define PORT 8888
 
 typedef struct
 {
@@ -151,10 +152,26 @@ void loadFiles()
     }
 }
 
+/**
+* HTTP Methods and structs
+*/
+
+struct request {
+	char * method;
+	char * url;
+};
+
+struct response {
+	int status_code;
+	char * data;
+	long data_length;
+	char * data_type;
+};
+
 int main()
 {
     struct sockaddr_in client_address;
-    struct sockaddr_in server_address = { .sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY, .sin_port = htons(8888) };
+    struct sockaddr_in server_address = { .sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY, .sin_port = htons(PORT) };
 
     listener = socket(AF_INET, SOCK_STREAM, 0);
     if (bind(listener, (struct sockaddr *)&server_address, sizeof(server_address))) { puts("Error binding."); exit(EXIT_FAILURE); }
