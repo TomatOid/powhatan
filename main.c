@@ -9,15 +9,6 @@
 * Threading Functions and Structures 
 */
 
-typedef struct
-{
-    pthread_mutex_t lock;
-    pthread_cond_t start;
-    pthread_t thread;
-    int busy;
-    int socket;
-} ThreadConnection;
-
 ThreadConnection thread_connections[MAX_THREADS_COUNT];
 ThreadConnection *thread_pool[MAX_THREADS_COUNT];
 size_t thread_pool_top = 0;
