@@ -89,7 +89,7 @@ void *threadFunction(void *my_thread_connect)
                 // Now check if uncompatible protocol
                 if (!request_lines[2] || strncmp(request_lines[2], "HTTP/1.0", 8) != 0 && strncmp(request_lines[2], "HTTP/1.1", 8) != 0)
                 {
-                    write(thread_connect->socket, "HTTP/1.0 400 Bad Request\n", 25);
+                    write(thread_connect->socket, "HTTP/1.0 505 HTTP Version not supported\n", 40);
                 }
                 else
                 {
