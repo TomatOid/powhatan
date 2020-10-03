@@ -7,7 +7,10 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/epoll.h>
 #include "lib/liblfds7.1.1/liblfds711/inc/liblfds711.h"
+
+#define MAX_MESSAGE_CHARS 8192
 /*
 * HTTP Structs*
 */
@@ -33,16 +36,32 @@ typedef struct
     int socket;
 } ThreadConnection;
 
-typedef struct {
+typedef struct 
+{
     int epoll_fd;
     int listen_fd;
-    int thread_count;
+    size_t thread_count;
     ThreadConnection *threads;
-    struct lfds711_freelist_element *volatile (*elimination_array)[LFDS_FREELIST_ELIMINATION_ARRAY_ELEMENT_SIZE_IN_FREELIST_ELEMENTS];
+    struct epoll_event *events;
+    struct lfds711_freelist_element *volatile (*elimination_array)[LFDS711_FREELIST_ELIMINATION_ARRAY_ELEMENT_SIZE_IN_FREELIST_ELEMENTS];
     struct lfds711_freelist_element *freelist_elements;
     struct lfds711_freelist_state *free_threads_list;
     struct lfds711_prng_st_state *random_state;
 } ListenerState;
+
+enum HttpMethod
+{
+    METHOD_INVALID,
+    METHOD_GET,
+    MEHTOD_POST,
+};
+
+typedef struct
+{
+    char message_buffer[MAX_MESSAGE_CHARS];
+    enum HttpMethod method;
+
+} HttpRequestEvent;
 
 Request getRequest(char *read_buf, long size);
 Response createErrorMsg(int status_code, char *data);

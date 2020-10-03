@@ -1,7 +1,6 @@
 #include "sparrow.h"
 
 #define MAX_THREADS_COUNT 16
-#define MAX_MESSAGE_CHARS 65536
 #define FILES_COUNT sizeof(file_names) / sizeof(char *)
 #define PORT 8888
 
