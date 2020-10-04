@@ -11,6 +11,7 @@
 #include "lib/liblfds7.1.1/liblfds711/inc/liblfds711.h"
 
 #define MAX_MESSAGE_CHARS 8192
+#define MAX_HEADER_SIZE 1024 // should be enough for now.
 /*
 * HTTP Structs*
 */
@@ -65,6 +66,6 @@ typedef struct
 
 Request getRequest(char *read_buf, long size);
 Response createErrorMsg(int status_code, char *data);
-int sendResponse(Response response_data, int request);
+int sendResponse(Response response_data, int connection);
 
 
