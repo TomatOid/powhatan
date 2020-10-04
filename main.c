@@ -98,7 +98,7 @@ void *threadFunction(void *my_thread_connect)
 
                     response_data.status_code = 200; // OK
                 }
-            } else if (strncmp(reqest_data.method, "HEAD", 5) == 0) {
+            } else if (strncmp(request_data.method, "HEAD", 5) == 0) {
                 // head method only send headers.
                 // not implemented, the codebase needs a refactor for this method to work effeciently.
                 // something like checkFile to see if the content exists, and if so send the type
