@@ -198,6 +198,7 @@ char * loadFile(const char * filename, long * file_size) {
         return NULL;
     }
 
+    // janky code to remove beginning /
     if(access(filename + 1, F_OK | R_OK) != -1) { 
         FILE* response_file = fopen(filename + 1,"rb");
         //printf("File opened: %d\n", response_file == NULL);
