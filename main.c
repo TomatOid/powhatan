@@ -2,7 +2,6 @@
 
 #define MAX_THREADS_COUNT 16
 #define FILES_COUNT sizeof(file_names) / sizeof(char *)
-#define PORT 8888
 
 /*
 * Threading Functions and Structures 
@@ -85,7 +84,13 @@ void *threadFunction(void *my_thread_connect)
                 // content negotiation
 
                 // load the file or run it?? e.g. php
-                file_buffer = loadFile(request_data.url, &file_size);
+                if (strncmp(request_data.url + strlen(request_data.url) - 4, ".php", 5) == 0) {
+                    printf("Executing php file\n");
+                    file_buffer = runPHPScript(request_data.url, request_data);
+                    file_size = strlen(file_buffer);
+                } else {
+                    file_buffer = loadFile(request_data.url, &file_size);
+                }
 
                 if(file_buffer == NULL) {
                     // Couldn't find file

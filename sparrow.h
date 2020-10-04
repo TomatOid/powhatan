@@ -22,6 +22,7 @@
 
 #define MAX_MESSAGE_CHARS 8192
 #define MAX_HEADER_SIZE 1024 // should be enough for now.
+#define PORT 8888
 /*
 * HTTP Structs*
 */

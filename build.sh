@@ -1,1 +1,1 @@
-gcc -C main.c -o server -lpthread
+gcc -C main.c mod_php.c -o server -lpthread
