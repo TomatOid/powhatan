@@ -1,13 +1,23 @@
+// Standard includes
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+// System includes
 #include <sys/socket.h>
+#include <sys/epoll.h>
+#include <sys/mman.h>
+
 #include <arpa/inet.h>
+
 #include <pthread.h>
+
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
-#include <sys/epoll.h>
+
+#include <errno.h>
+
 #include "lib/liblfds7.1.1/liblfds711/inc/liblfds711.h"
 
 #define MAX_MESSAGE_CHARS 8192
@@ -67,5 +77,6 @@ typedef struct
 Request getRequest(char *read_buf, long size);
 Response createErrorMsg(int status_code, char *data);
 int sendResponse(Response response_data, int connection);
-
+// Dynamic file loading --- Pretty gosh darn fast, all things considered.
+char * loadFile(const char * filename, long * file_size);
 

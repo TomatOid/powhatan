@@ -49,8 +49,11 @@ void *threadFunction(void *my_thread_connect)
 {
     char message_buffer[MAX_MESSAGE_CHARS];
     char *request_lines[3];
+    
     Request request_data;
     Response response_data;
+    char * file_buffer;
+    long file_size;
 
     ThreadConnection *thread_connect = my_thread_connect;
     for (;;)
@@ -74,7 +77,24 @@ void *threadFunction(void *my_thread_connect)
             request_data = getRequest(message_buffer, MAX_MESSAGE_CHARS);
             printf("Method: %s| Url: %s\n", request_data.method, request_data.url);
 
-            Response response_data = createErrorMsg(501, "501 Not Implemented");
+            // check the method
+            if(strncmp(request_data.method, "GET", 4) == 0) {
+                // load the file
+                file_buffer = loadFile(request_data.url, &file_size);
+
+                if(file_buffer == NULL) {
+                    // Couldn't find file
+                    response_data = createErrorMsg(404, "404 Not Found");
+                } else {
+                    response_data.data = file_buffer;
+                    response_data.data_length = file_size;
+                    response_data.data_type = "text/html"; // will update later.
+                    response_data.status_code = 200; // OK
+                }
+            } else {
+                // unsupported method. 505
+                response_data = createErrorMsg(501, "501 Not Implemented");
+            }
 
             if(sendResponse(response_data, thread_connect->socket) < 0) {
                 printf("Error sending response\n");
@@ -167,6 +187,45 @@ int sendResponse(Response response_data, int connection) {
     bytes += write(connection, response_data.data, response_data.data_length); // yes, I know write could also return -1 here, but I just wanted to get it working
 
     return bytes; 
+}
+
+char * loadFile(const char * filename, long * file_size) {
+
+    char * buffer;
+
+    if(*(filename + strlen(filename) - 1) == '/') {
+        printf("Can't retreive directories currently!");
+        return NULL;
+    }
+
+    if(access(filename + 1, F_OK | R_OK) != -1) { 
+        FILE* response_file = fopen(filename + 1,"rb");
+        //printf("File opened: %d\n", response_file == NULL);
+
+        //printf("Getting size of file\n");
+        fseek(response_file, 0, SEEK_END);
+        *file_size = ftell(response_file);
+        fseek(response_file, 0, SEEK_SET);  /* same as rewind(f); */
+
+        printf("Size: %ld\n", (*file_size));
+
+        //printf("Reading file into buffer\n");
+        buffer = mmap(NULL, (*file_size), PROT_READ, MAP_PRIVATE, fileno(response_file), 0);
+        //fread(file_buffer, 1, (*fsize), response_file);
+
+        fclose(response_file);
+
+        //printf("Setting end of file buffer.\n");
+        //file_buffer[(*fsize)] = 0;
+
+    } else {
+        buffer = NULL;   
+        printf("Could not find file.\n");
+        perror("Failed");
+        errno = 0;
+    }
+
+    return buffer;
 }
 
 void exitFunction()
