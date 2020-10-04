@@ -126,7 +126,7 @@ Request getRequest(char * read_buf, long size) {
     Request request_data;
     
     request_data.method = strtok(read_buf, " \t");
-    request_data.filename = strtok(NULL, " \t\n");
+    request_data.url = strtok(NULL, " \t\n");
 
     return request_data;
 }
