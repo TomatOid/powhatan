@@ -1,0 +1,18 @@
+.\"Manpage for powhatan
+.\"Create a github issue on the github repository to correct errors
+.TH man 8 "03 October 2020" "0.1" "powhatan man page"
+.SH NAME
+powhatan \- run the powhatan web server
+.SH SYNOPSIS
+powhatan
+.SH DESCRIPTION
+powhatan is a lightweight http server.
+.SH OPTIONS
+There are no currrent command line options
+.SH SEE ALSO 
+httpd(8)
+.SH BUGS
+No know bugs
+.SH AUTHOR
+[Redacted] ([Redacted])
+[Redacted] ([Redacted])
