@@ -80,3 +80,6 @@ int sendResponse(Response response_data, int connection);
 // Dynamic file loading --- Pretty gosh darn fast, all things considered.
 char * loadFile(const char * filename, long * file_size);
 char * getErrorDescription(int status_code);
+
+// php definitions, for mod_php.c
+char * runPHPScript(char * filename, Request request);
