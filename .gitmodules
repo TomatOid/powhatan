@@ -1,0 +1,3 @@
+[submodule "mediawiki/mediawiki"]
+	path = mediawiki/mediawiki
+	url = https://github.com/wikimedia/mediawiki.git

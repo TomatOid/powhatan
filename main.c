@@ -78,8 +78,13 @@ void *threadFunction(void *my_thread_connect)
             printf("Method: %s| Url: %s\n", request_data.method, request_data.url);
 
             // check the method
+            // yes i know we aren't checking the protocol, but I don't believe it will be totally necessary yet.
             if(strncmp(request_data.method, "GET", 4) == 0) {
-                // load the file
+                // url redirection
+
+                // content negotiation
+
+                // load the file or run it?? e.g. php
                 file_buffer = loadFile(request_data.url, &file_size);
 
                 if(file_buffer == NULL) {
@@ -88,13 +93,19 @@ void *threadFunction(void *my_thread_connect)
                 } else {
                     response_data.data = file_buffer;
                     response_data.data_length = file_size;
+
                     response_data.data_type = "text/html"; // will update later.
+
                     response_data.status_code = 200; // OK
                 }
+            } else if (strncmp(reqest_data.method, "HEAD", 5) == 0) {
+                // head method only send headers.
+                // not implemented, the codebase needs a refactor for this method to work effeciently.
+                // something like checkFile to see if the content exists, and if so send the type
             } else {
                 // unsupported method. 505
                 response_data = createErrorMsg(501, "501 Not Implemented");
-            }
+            } 
 
             if(sendResponse(response_data, thread_connect->socket) < 0) {
                 printf("Error sending response\n");
@@ -175,7 +186,7 @@ int sendResponse(Response response_data, int connection) {
 
     // really don't like this, I would rather use malloc, but I hope you're happy
     char headers[MAX_HEADER_SIZE];
-    sprintf(headers, "HTTP/1.1 %d OK\r\nContent-Type: %s\r\nContent-Length: %ld\r\n\r\n", response_data.status_code, response_data.data_type, response_data.data_length);
+    sprintf(headers, "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %ld\r\n\r\n", response_data.status_code, getErrorDescription(response_data.status_code), response_data.data_type, response_data.data_length);
 
     // let's write the headers first. The client should wait til they recieve more data 
     int bytes = write(connection, headers, strlen(headers));
@@ -187,6 +198,20 @@ int sendResponse(Response response_data, int connection) {
     bytes += write(connection, response_data.data, response_data.data_length); // yes, I know write could also return -1 here, but I just wanted to get it working
 
     return bytes; 
+}
+
+// yes, i know, its hacky, but we need to do something, maybe defines?
+char * getErrorDescription(int status_code) {
+    switch (status_code) {
+        case 200:
+            return "OK";
+        case 404:
+            return "Not found";
+        case 501:
+            return "Not Implemented";
+        default:
+            return "ERROR";
+    }
 }
 
 char * loadFile(const char * filename, long * file_size) {
