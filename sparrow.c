@@ -18,7 +18,7 @@ ListenerState createListener(int listen_fd, void *(*thread_function) (void *), s
     threads_count = result.thread_count;
     
     result.threads = malloc(threads_count * sizeof(ThreadConnection));
-    result.events = malloc(threads_count * threads_count);
+    result.events = malloc(threads_count * sizeof(struct epoll_event));
     result.listen_fd = listen_fd;
     for (size_t i = 0; i < threads_count; i++)
     {
