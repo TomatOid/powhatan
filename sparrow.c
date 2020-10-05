@@ -50,14 +50,25 @@ int listenDispatch(ListenerState *listener, int timeout)
     int events_count = epoll_wait(listener->epoll_fd, event_buffer, MAX_EVENTS, timeout);
     for (int i = 0; i < events_count; i++)
     {
-        if (event_buffer[i].data.fd == )
-        sem_wait(&listener->thread_pool_sem);
-        pthread_mutex_lock(&listener->thread_pool_lock);
-        ThreadConnection *free_thread = &listener->thread_pool[--listener->thread_pool_top];
-        pthread_mutex_unlock(&listener->thread_pool_lock);
-        pthread_mutex_lock(&free_thread->lock);
-        free_thread->busy = 1;
-        pthread_cond_signal(&free_thread->start);
-        pthread_mutex_unlock(&free_thread->lock);
+        if (event_buffer[i].data.fd == listener->listen_fd)
+        {
+            struct sockaddr_in address;
+            socklen_t address_length = sizeof(address);
+            int new_fd = accept(listener, (struct sockaddr_t *)&address, &address_length);
+            if (new_fd < 0) { fprintf(stderr, "Error accepting socket\n"); continue; }
+            epoll_ctl(listener->epoll_fd, EPOLL_CTL_ADD, new_fd, NULL);
+        }
+        else if (event_buffer[i].events & EPOLLIN && event_buffer[i].events & EPOLLOUT)
+        {
+            sem_wait(&listener->thread_pool_sem);
+            pthread_mutex_lock(&listener->thread_pool_lock);
+            ThreadConnection *free_thread = &listener->thread_pool[--listener->thread_pool_top];
+            pthread_mutex_unlock(&listener->thread_pool_lock);
+            pthread_mutex_lock(&free_thread->lock);
+            free_thread->busy = 1;
+            free_thread->socket = event_buffer[i].data.fd;
+            pthread_cond_signal(&free_thread->start);
+            pthread_mutex_unlock(&free_thread->lock);
+        }
     }
 }

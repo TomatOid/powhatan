@@ -21,11 +21,8 @@
 
 #include <errno.h>
 
-#ifdef USE_BLOCK_ALLOCATOR_FOR_EPOLL
-#include "BlockAllocate.h"
 #ifndef MAX_CLIENTS
 #define MAX_CLIENTS 10000
-#endif
 #endif
 
 #define MAX_MESSAGE_CHARS 8192
@@ -70,9 +67,6 @@ typedef struct
     // consumer calls post when done / starts waiting
     sem_t thread_pool_sem; 
     size_t thread_pool_top; // this might be reduntant with the sem, but I don't feel like calling getvalue
-#ifdef USE_BLOCK_ALLOCATOR_FOR_EPOLL
-    BlockPage event_page;
-#endif
 } ListenerState;
 
 enum HttpMethod
