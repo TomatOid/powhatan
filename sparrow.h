@@ -1,7 +1,9 @@
 // Standard includes
+#define __STDC_WANT_LIB_EXT1__ 1
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 // System includes
 #include <sys/socket.h>
@@ -19,11 +21,17 @@
 
 #include <errno.h>
 
-#include "lib/liblfds7.1.1/liblfds711/inc/liblfds711.h"
+#ifdef USE_BLOCK_ALLOCATOR_FOR_EPOLL
+#include "BlockAllocate.h"
+#ifndef MAX_CLIENTS
+#define MAX_CLIENTS 10000
+#endif
+#endif
 
 #define MAX_MESSAGE_CHARS 8192
 #define MAX_HEADER_SIZE 1024 // should be enough for now.
 #define MAX_THREADS_COUNT 16
+#define MAX_EVENTS MAX_THREADS_COUNT + 1
 #define PORT 8888
 /*
 * HTTP Structs*
@@ -54,7 +62,6 @@ typedef struct
 {
     int epoll_fd;
     int listen_fd;
-    size_t thread_count;
     ThreadConnection threads[MAX_THREADS_COUNT];
     ThreadConnection *thread_pool[MAX_THREADS_COUNT];
     pthread_mutex_t thread_pool_lock;
@@ -63,8 +70,9 @@ typedef struct
     // consumer calls post when done / starts waiting
     sem_t thread_pool_sem; 
     size_t thread_pool_top; // this might be reduntant with the sem, but I don't feel like calling getvalue
-    struct epoll_event events[MAX_THREADS_COUNT];
-    
+#ifdef USE_BLOCK_ALLOCATOR_FOR_EPOLL
+    BlockPage event_page;
+#endif
 } ListenerState;
 
 enum HttpMethod
@@ -78,8 +86,12 @@ typedef struct
 {
     char message_buffer[MAX_MESSAGE_CHARS];
     enum HttpMethod method;
-
+    char *uri;
 } HttpRequestEvent;
+
+int initListener(ListenerState *listener, int listen_fd, void *(*thread_function)(void *));
+int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequestEvent *event);
+int listenDispatch(ListenerState *listener, int timeout);
 
 Request getRequest(char *read_buf, long size);
 Response createErrorMsg(int status_code, char *data);
