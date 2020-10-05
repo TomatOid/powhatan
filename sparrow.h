@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <semaphore.h>
 
 #include <errno.h>
 
@@ -22,6 +23,7 @@
 
 #define MAX_MESSAGE_CHARS 8192
 #define MAX_HEADER_SIZE 1024 // should be enough for now.
+#define MAX_THREADS_COUNT 16
 #define PORT 8888
 /*
 * HTTP Structs*
@@ -53,12 +55,16 @@ typedef struct
     int epoll_fd;
     int listen_fd;
     size_t thread_count;
-    ThreadConnection *threads;
-    struct epoll_event *events;
-    struct lfds711_freelist_element *volatile (*elimination_array)[LFDS711_FREELIST_ELIMINATION_ARRAY_ELEMENT_SIZE_IN_FREELIST_ELEMENTS];
-    struct lfds711_freelist_element *freelist_elements;
-    struct lfds711_freelist_state *free_threads_list;
-    struct lfds711_prng_st_state *random_state;
+    ThreadConnection threads[MAX_THREADS_COUNT];
+    ThreadConnection *thread_pool[MAX_THREADS_COUNT];
+    pthread_mutex_t thread_pool_lock;
+    // thread_pool_sem will be zero when all threads are working,
+    // producer calls wait before sending work which will block when there are no free threads,
+    // consumer calls post when done / starts waiting
+    sem_t thread_pool_sem; 
+    size_t thread_pool_top; // this might be reduntant with the sem, but I don't feel like calling getvalue
+    struct epoll_event events[MAX_THREADS_COUNT];
+    
 } ListenerState;
 
 enum HttpMethod
