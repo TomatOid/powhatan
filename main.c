@@ -1,6 +1,6 @@
+#define USE_BLOCK_ALLOCATOR_FOR_EPOLL
 #include "sparrow.h"
 
-#define MAX_THREADS_COUNT 16
 #define FILES_COUNT sizeof(file_names) / sizeof(char *)
 
 /*

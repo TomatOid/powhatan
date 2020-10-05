@@ -1,24 +1,5 @@
 #include "sparrow.h"
 
-struct epoll_event *allocEpollEvent(ListenerState *listener)
-{
-#ifdef USE_BLOCK_ALLOCATOR_FOR_EPOLL
-    return blockAlloc(&listener->event_page);
-#else
-    return malloc(sizeof(struct epoll_event));
-#endif
-}
-
-int freeEpollEvent(ListenerState *listener, struct epoll_event *event)
-{
-#ifdef USE_BLOCK_ALLOCATOR_FOR_EPOLL
-    return blockFree(&listener->event_page, event);
-#else
-    free(event);
-    return 1;
-#endif
-}
-
 int initListener(ListenerState *listener, int listen_fd, void *(*thread_function)(void *))
 {
     listener->listen_fd = listen_fd;
@@ -31,11 +12,8 @@ int initListener(ListenerState *listener, int listen_fd, void *(*thread_function
         pthread_create(&listener->threads[i].thread, NULL, thread_function, &listener->threads[i]);
     }
 
-#ifdef USE_BLOCK_ALLOCATOR_FOR_EPOLL
-    makePage(&listener->event_page, MAX_CLIENTS, sizeof(epoll_event));
-#endif
     listener->epoll_fd = epoll_create1(0);
-    epoll_ctl(listener->epoll_fd, EPOLL_CTL_ADD, listen_fd, allocEpollEvent(listener)); // error check maybe??
+    epoll_ctl(listener->epoll_fd, EPOLL_CTL_ADD, listen_fd, NULL); // error check maybe??
     return 1;
 }
 
@@ -72,6 +50,7 @@ int listenDispatch(ListenerState *listener, int timeout)
     int events_count = epoll_wait(listener->epoll_fd, event_buffer, MAX_EVENTS, timeout);
     for (int i = 0; i < events_count; i++)
     {
+        if (event_buffer[i].data.fd == )
         sem_wait(&listener->thread_pool_sem);
         pthread_mutex_lock(&listener->thread_pool_lock);
         ThreadConnection *free_thread = &listener->thread_pool[--listener->thread_pool_top];
