@@ -1,4 +1,5 @@
 // Standard includes
+#define USE_EXT1 1
 #define __STDC_WANT_LIB_EXT1__ 1
 #include <stdio.h>
 #include <string.h>
@@ -20,12 +21,14 @@
 #include <semaphore.h>
 
 #include <errno.h>
+#include "libsafec-10052013/include/safe_lib.h"
+#include "libsafec-10052013/include/safe_str_lib.h"
 
 #ifndef MAX_CLIENTS
 #define MAX_CLIENTS 10000
 #endif
 
-#define MAX_MESSAGE_CHARS 8192
+#define MAX_MESSAGE_CHARS RSIZE_MAX_STR
 #define MAX_HEADER_SIZE 1024 // should be enough for now.
 #define MAX_THREADS_COUNT 16
 #define MAX_EVENTS MAX_THREADS_COUNT + 1
