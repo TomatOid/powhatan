@@ -1,12 +1,5 @@
 #include "sparrow.h"
 
-/******************************************************************
- * Agh! all of this is wrong. there goes a day down the drain...  *
- ******************************************************************/
-// fds registered with epoll should not be shared across theads!
-// and there is no sane way to do this anyway, as read can return
-// EAGAIN and I am supposed to somehow save state and wait.
-
 int initListener(ListenerState *listener, int listen_fd, void *(*thread_function)(void *))
 {
     listener->listen_fd = listen_fd;
@@ -19,9 +12,6 @@ int initListener(ListenerState *listener, int listen_fd, void *(*thread_function
         pthread_create(&listener->threads[i].thread, NULL, thread_function, &listener->threads[i]);
     }
 
-    listener->epoll_fd = epoll_create1(EPOLLEXCLUSIVE);
-    struct epoll_event event = { .data.fd = listen_fd, .events = EPOLLIN };
-    epoll_ctl(listener->epoll_fd, EPOLL_CTL_ADD, listen_fd, &event); // error check maybe??
     set_str_constraint_handler_s(NULL);
     return 1;
 }
@@ -60,33 +50,20 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
 // Producer function
 int listenDispatch(ListenerState *listener, int timeout)
 {
-    struct epoll_event event_buffer[MAX_EVENTS] = { 0 };
-    int events_count = epoll_wait(listener->epoll_fd, event_buffer, MAX_EVENTS, timeout);
-    for (int i = 0; i < events_count; i++)
-    {
-        if (event_buffer[i].data.fd == listener->listen_fd)
-        {
-            puts("connection request");
-            struct sockaddr_in address;
-            socklen_t address_length = sizeof(address);
-            int new_fd = accept(listener->listen_fd, (struct sockaddr *)&address, &address_length);
-            if (new_fd < 0) { fprintf(stderr, "Error accepting socket\n"); continue; }
-            struct epoll_event event = { .data.fd = new_fd, .events = EPOLLIN | EPOLLOUT };
-            epoll_ctl(listener->epoll_fd, EPOLL_CTL_ADD, new_fd, &event);
-        }
-        else if (event_buffer[i].events | EPOLLIN)
-        {
-            sem_wait(&listener->thread_pool_sem);
-            pthread_mutex_lock(&listener->thread_pool_lock);
-            ThreadConnection *free_thread = listener->thread_pool[--listener->thread_pool_top];
-            pthread_mutex_unlock(&listener->thread_pool_lock);
-            pthread_mutex_lock(&free_thread->lock);
-            free_thread->busy = 1;
-            free_thread->socket = event_buffer[i].data.fd;
-            pthread_cond_signal(&free_thread->start);
-            pthread_mutex_unlock(&free_thread->lock);
-            puts("signaled");
-        }
-    }
+    struct sockaddr_in address;
+    socklen_t address_length = sizeof(address);
+    int new_fd = accept(listener->listen_fd, (struct sockaddr *)&address, &address_length);
+    if (new_fd < 0) { fprintf(stderr, "Error accepting socket\n"); return 0; }
+    struct epoll_event event = { .data.fd = new_fd, .events = EPOLLIN | EPOLLOUT };
 
+    sem_wait(&listener->thread_pool_sem);
+    pthread_mutex_lock(&listener->thread_pool_lock);
+    ThreadConnection *free_thread = listener->thread_pool[--listener->thread_pool_top];
+    pthread_mutex_unlock(&listener->thread_pool_lock);
+    pthread_mutex_lock(&free_thread->lock);
+    free_thread->busy = 1;
+    free_thread->socket = new_fd;
+    pthread_cond_signal(&free_thread->start);
+    pthread_mutex_unlock(&free_thread->lock);
+    return 1;
 }

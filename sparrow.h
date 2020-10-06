@@ -60,7 +60,6 @@ typedef struct
 
 typedef struct 
 {
-    int epoll_fd;
     int listen_fd;
     ThreadConnection threads[MAX_THREADS_COUNT];
     ThreadConnection *thread_pool[MAX_THREADS_COUNT];
