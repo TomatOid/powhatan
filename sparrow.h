@@ -1,3 +1,4 @@
+#pragma once
 // Standard includes
 #define USE_EXT1 1
 #define __STDC_WANT_LIB_EXT1__ 1
@@ -5,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stddef.h>
 
 // System includes
 #include <sys/socket.h>
@@ -61,6 +63,7 @@ typedef struct
 typedef struct 
 {
     int listen_fd;
+    int epoll_fd;
     ThreadConnection threads[MAX_THREADS_COUNT];
     ThreadConnection *thread_pool[MAX_THREADS_COUNT];
     pthread_mutex_t thread_pool_lock;
@@ -78,16 +81,22 @@ enum HttpMethod
     MEHTOD_POST,
 };
 
+static char *request_field_strings[] = { "A-IM", "Accept", "Accept-Charset", "Accept-Datetime", "Accept-Encoding", "Access-Control-Request-Headers", "Access-Control-Request-Method", "Authorization", "Cache-Control", "Connection", "Content-Encoding", "Content-Length", "Content-MD5", "Content-Type", "Cookie", "Date", "Expect", "Forewarded", "From", "Host", };
+
+enum { REQUEST_A_IM, REQUEST_ACCEPT, REQUEST_ACCEPT_CHARSET, REQUEST_ACCEPT_ENCODING, REQUEST_ACCESS_CONTROL_REQUEST_HEADERS, REQUEST_ACCESS_CONTROL_REQUEST_METHOD, REQUEST_AUTHORIZATION, REQUEST_CACHE_CONTROL, REQUEST_CONNECTION, REQUEST_CONTENT_ENCODING, REQUEST_CONTENT_LENGTH, REQUEST_CONTENT_MD5, REQUEST_CONTENT_TYPE, REQUEST_COOKIE, REQUEST_DATE, REQUEST_EXPECT, REQUEST_FOREWARDED, REQUEST_FROM, REQUEST_HOST };
+
 typedef struct
 {
     char message_buffer[MAX_MESSAGE_CHARS];
     enum HttpMethod method;
     char *uri;
+    char *fields[sizeof(request_field_strings) / sizeof(char *)];
 } HttpRequestEvent;
 
 int initListener(ListenerState *listener, int listen_fd, void *(*thread_function)(void *));
 int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequestEvent *event);
 int listenDispatch(ListenerState *listener, int timeout);
+int returnSocketToListener(ListenerState *listener, int fd);
 
 Request getRequest(char *read_buf, long size);
 Response createErrorMsg(int status_code, char *data);
