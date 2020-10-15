@@ -53,15 +53,15 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
     // the producer is responsible for waiting and poping, as well as setting fd
     pthread_mutex_unlock(&thread_connect->lock);
     
-	// now we read the request from the fd
+    // now we read the request from the fd
     memset(event, 0, sizeof(HttpRequestEvent));
     // minus one is for garanteed null-termination
     if (readWithTimeout(thread_connect->socket, event->message_buffer, MAX_MESSAGE_CHARS - 1, TIMEOUT_US) < 0) goto err;
     
-	// and parse it
+    // and parse it
     char *internal_ptr = event->message_buffer;
-	// this should be safe as long as the buffer remains NULL-terminated, 
-	// which it should as long as we don't mess with internal_ptr
+    // this should be safe as long as the buffer remains NULL-terminated, 
+    // which it should as long as we don't mess with internal_ptr
     char *token_ptr = strtok_r(event->message_buffer, " \0", &internal_ptr);
     if (!token_ptr) goto err;
     if (memcmp(token_ptr, "GET\0", 4) == 0) event->method = METHOD_GET;
