@@ -14,8 +14,6 @@ int initListener(ListenerState *listener, int listen_fd, void *(*thread_function
         pthread_create(&listener->threads[i].thread, NULL, thread_function, &listener->threads[i]);
     }
 
-    set_str_constraint_handler_s(NULL);
-
     listener->epoll_fd = epoll_create1(0);
     struct epoll_event event = { .data.fd = listen_fd, .events = EPOLLIN };
     epoll_ctl(listener->epoll_fd, EPOLL_CTL_ADD, listen_fd, &event);
@@ -61,7 +59,9 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
     // and parse it
     rsize_t buffer_remaining = MAX_MESSAGE_CHARS;
     char *internal_ptr = event->message_buffer;
-    char *token_ptr = strtok_s(event->message_buffer, &buffer_remaining, " \0", &internal_ptr);
+	// this should be safe as long as the buffer remains NULL-terminated, 
+	// which it should as long as we don't mess with internal_ptr
+    char *token_ptr = strtok_r(event->message_buffer, " \0", &internal_ptr);
     if (!token_ptr) goto err;
     if (memcmp(token_ptr, "GET\0", 4) == 0) event->method = METHOD_GET;
     else if (memcmp(token_ptr, "POST\0", 5) == 0) event->method = MEHTOD_POST;
@@ -69,11 +69,11 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
     event->uri = strtok_s(NULL, &buffer_remaining, "\r\n", &internal_ptr); // TODO: set up constraint handlers
     while (token_ptr)
     {
-        token_ptr = strtok_s(NULL, &buffer_remaining, ": ", &internal_ptr);
+        token_ptr = strtok_r(NULL, ": ", &internal_ptr);
         if (!token_ptr) break;
         token_ptr++;
         char **field = bsearch(&token_ptr, request_field_strings, sizeof(request_field_strings) / sizeof(char *), sizeof(char *), customStrCmp);
-        token_ptr = strtok_s(NULL, &buffer_remaining, "\r\n", &internal_ptr);
+        token_ptr = strtok_s(NULL, "\r\n", &internal_ptr);
         if (field && *field)
         {
             ptrdiff_t field_index = (field - request_field_strings) / sizeof(char *);
