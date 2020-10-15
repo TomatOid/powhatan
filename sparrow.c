@@ -52,12 +52,13 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
     while (!thread_connect->busy) pthread_cond_wait(&thread_connect->start, &thread_connect->lock);
     // the producer is responsible for waiting and poping, as well as setting fd
     pthread_mutex_unlock(&thread_connect->lock);
-    // now we read the request from the fd
+    
+	// now we read the request from the fd
     memset(event, 0, sizeof(HttpRequestEvent));
     // minus one is for garanteed null-termination
     if (readWithTimeout(thread_connect->socket, event->message_buffer, MAX_MESSAGE_CHARS - 1, TIMEOUT_US) < 0) goto err;
-    // and parse it
-    rsize_t buffer_remaining = MAX_MESSAGE_CHARS;
+    
+	// and parse it
     char *internal_ptr = event->message_buffer;
 	// this should be safe as long as the buffer remains NULL-terminated, 
 	// which it should as long as we don't mess with internal_ptr
@@ -66,17 +67,18 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
     if (memcmp(token_ptr, "GET\0", 4) == 0) event->method = METHOD_GET;
     else if (memcmp(token_ptr, "POST\0", 5) == 0) event->method = MEHTOD_POST;
     else goto err;
-    event->uri = strtok_s(NULL, &buffer_remaining, "\r\n", &internal_ptr); // TODO: set up constraint handlers
+    event->uri = strtok_r(NULL, "\r\n", &internal_ptr);
+
     while (token_ptr)
     {
         token_ptr = strtok_r(NULL, ": ", &internal_ptr);
         if (!token_ptr) break;
         token_ptr++;
         char **field = bsearch(&token_ptr, request_field_strings, sizeof(request_field_strings) / sizeof(char *), sizeof(char *), customStrCmp);
-        token_ptr = strtok_s(NULL, "\r\n", &internal_ptr);
+        token_ptr = strtok_r(NULL, "\r\n", &internal_ptr);
         if (field && *field)
         {
-            ptrdiff_t field_index = (field - request_field_strings) / sizeof(char *);
+            ptrdiff_t field_index = field - request_field_strings;
             if (field_index < sizeof(request_field_strings) / sizeof(char *) && field_index >= 0)
             {
                 event->fields[field_index] = token_ptr;
@@ -84,6 +86,7 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
         }
     }
     return 1;
+
     err:
     event->method = METHOD_INVALID;
     return 0;
