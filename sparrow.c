@@ -1,6 +1,7 @@
 #include "sparrow.h"
 
 #define TIMEOUT_US 1000000
+#define EPOLL_FLAGS EPOLLONESHOT | EPOLLIN
 
 int initListener(ListenerState *listener, int listen_fd, void *(*thread_function)(void *))
 {
@@ -52,12 +53,12 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
     while (!thread_connect->busy) pthread_cond_wait(&thread_connect->start, &thread_connect->lock);
     // the producer is responsible for waiting and poping, as well as setting fd
     pthread_mutex_unlock(&thread_connect->lock);
-    
+
     // now we read the request from the fd
     memset(event, 0, sizeof(HttpRequestEvent));
     // minus one is for garanteed null-termination
     if (readWithTimeout(thread_connect->socket, event->message_buffer, MAX_MESSAGE_CHARS - 1, TIMEOUT_US) < 0) goto err;
-    
+
     // and parse it
     char *internal_ptr = event->message_buffer;
     // this should be safe as long as the buffer remains NULL-terminated, 
@@ -94,7 +95,7 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
 
 int returnSocketToListener(ListenerState *listener, int fd)
 {
-    struct epoll_event event = { .data.fd = fd, .events = EPOLLONESHOT | EPOLLIN };
+    struct epoll_event event = { .data.fd = fd, .events = EPOLL_FLAGS };
     return epoll_ctl(listener->epoll_fd, EPOLL_CTL_MOD, fd, &event);
 }
 
@@ -115,7 +116,7 @@ int listenDispatch(ListenerState *listener, int timeout)
                 socklen_t address_length = sizeof(address);
                 int new_fd = accept(listener->listen_fd, (struct sockaddr *)&address, &address_length);
                 if (new_fd < 0) { fprintf(stderr, "Error accepting socket\n"); continue; }
-                struct epoll_event event = { .data.fd = new_fd, .events = EPOLLONESHOT | EPOLLIN };
+                struct epoll_event event = { .data.fd = new_fd, .events = EPOLL_FLAGS };
                 if (epoll_ctl(listener->epoll_fd, EPOLL_CTL_ADD, new_fd, &event) < 0) perror("ctl");
             }
             else
