@@ -40,6 +40,20 @@ int customStrCmp(const void *a, const void *b)
     return strcmp(*(char **)a, *(char **)b);
 }
 
+// find the next occurence of delimiter string in input string
+char *multiToken(char *string, char *delimiter, char **internal)
+{
+    if (!internal) return NULL;
+    if (!string) string = *internal;
+    if (!string) return NULL;
+
+    *internal = strstr(string, delimiter);
+    if (!*internal) return NULL;
+    **internal = '\0';
+    *internal += strlen(delimiter);
+    return string;
+}
+
 // Consumer function
 int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequestEvent *event)
 {
@@ -63,21 +77,21 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
     char *internal_ptr = event->message_buffer;
     // this should be safe as long as the buffer remains NULL-terminated, 
     // which it should as long as we don't mess with internal_ptr
-    char *token_ptr = strtok_r(event->message_buffer, " \0", &internal_ptr);
+    char *token_ptr = multiToken(event->message_buffer, " ", &internal_ptr);
     if (!token_ptr) goto err;
     if (memcmp(token_ptr, "GET\0", 4) == 0) event->method = METHOD_GET;
     else if (memcmp(token_ptr, "POST\0", 5) == 0) event->method = MEHTOD_POST;
     else goto err;
-    event->uri = strtok_r(NULL, "\r\n", &internal_ptr);
+    event->uri = multiToken(NULL, " ", &internal_ptr);
+    multiToken(NULL, "\r\n", &internal_ptr); // Protocol version
 
     while (token_ptr)
     {
-        token_ptr = strtok_r(NULL, ": ", &internal_ptr);
+        token_ptr = multiToken(NULL, ": ", &internal_ptr);
         if (!token_ptr) break;
-        token_ptr++;
         char **field = bsearch(&token_ptr, request_field_strings, sizeof(request_field_strings) / sizeof(char *), sizeof(char *), customStrCmp);
-        token_ptr = strtok_r(NULL, "\r\n", &internal_ptr);
-        if (field && *field)
+        token_ptr = multiToken(NULL, "\r\n", &internal_ptr);
+        if (field && *field && token_ptr)
         {
             ptrdiff_t field_index = field - request_field_strings;
             if (field_index < sizeof(request_field_strings) / sizeof(char *) && field_index >= 0)
