@@ -1,4 +1,5 @@
 #include "sparrow.h"
+#include <errno.h>
 
 #define TIMEOUT_US 1000000
 #define EPOLL_FLAGS EPOLLONESHOT | EPOLLIN
@@ -16,7 +17,7 @@ int initListener(ListenerState *listener, int listen_fd, void *(*thread_function
     }
 
     listener->epoll_fd = epoll_create1(0);
-    struct epoll_event event = { .data.fd = listen_fd, .events = EPOLLIN };
+    struct epoll_event event = { .data.fd = listen_fd, .events = EPOLLIN | EPOLLRDHUP };
     epoll_ctl(listener->epoll_fd, EPOLL_CTL_ADD, listen_fd, &event);
     return 1;
 }
@@ -57,21 +58,35 @@ char *multiToken(char *string, char *delimiter, char **internal)
 // Consumer function
 int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequestEvent *event)
 {
-    // push ourselves onto the free threads pool and wait
-    thread_connect->busy = 0;
-    pthread_mutex_lock(&listener->thread_pool_lock);
-    listener->thread_pool[listener->thread_pool_top++] = thread_connect;
-    pthread_mutex_unlock(&listener->thread_pool_lock);
-    sem_post(&listener->thread_pool_sem);
-    pthread_mutex_lock(&thread_connect->lock);
-    while (!thread_connect->busy) pthread_cond_wait(&thread_connect->start, &thread_connect->lock);
-    // the producer is responsible for waiting and poping, as well as setting fd
-    pthread_mutex_unlock(&thread_connect->lock);
+    int read_return;
+    do {
+        // push ourselves onto the free threads pool and wait
+        thread_connect->busy = 0;
+        pthread_mutex_lock(&listener->thread_pool_lock);
+        listener->thread_pool[listener->thread_pool_top++] = thread_connect;
+        pthread_mutex_unlock(&listener->thread_pool_lock);
+        sem_post(&listener->thread_pool_sem);
+        pthread_mutex_lock(&thread_connect->lock);
+        while (!thread_connect->busy) pthread_cond_wait(&thread_connect->start, &thread_connect->lock);
+        // the producer is responsible for waiting and poping, as well as setting fd
+        pthread_mutex_unlock(&thread_connect->lock);
 
-    // now we read the request from the fd
-    memset(event, 0, sizeof(HttpRequestEvent));
-    // minus one is for garanteed null-termination
-    if (readWithTimeout(thread_connect->socket, event->message_buffer, MAX_MESSAGE_CHARS - 1, TIMEOUT_US) < 0) goto err;
+        // now we read the request from the fd
+        memset(event, 0, sizeof(HttpRequestEvent));
+        // minus one is for garanteed null-termination
+        read_return = read(thread_connect->socket, event->message_buffer, MAX_MESSAGE_CHARS - 1);
+        int read_error = errno;
+        
+        if (read_return < 0) 
+        {
+            printf("%d\n", read_error);
+            goto err;
+        }
+        if (!read_return)
+        {
+            close(thread_connect->socket);
+        }
+    } while (!read_return);
 
     // and parse it
     char *internal_ptr = event->message_buffer;
@@ -79,8 +94,14 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
     // which it should as long as we don't mess with internal_ptr
     char *token_ptr = multiToken(event->message_buffer, " ", &internal_ptr);
     if (!token_ptr) goto err;
-    if (memcmp(token_ptr, "GET\0", 4) == 0) event->method = METHOD_GET;
-    else if (memcmp(token_ptr, "POST\0", 5) == 0) event->method = MEHTOD_POST;
+    // possible exploit here if you had, say 1021 'A's and then a space,
+    // you could cause the program to compare past the end of the buffer.
+    // replacing memcmp with strncmp
+    // the buffer is NULL terminated, so strncmp will not read past the end
+    // eh actually it was probably fine since token_ptr will always point to the
+    // beginning of the buffer at this stage
+    if (strncmp(token_ptr, "GET", 4) == 0) event->method = METHOD_GET;
+    else if (strncmp(token_ptr, "POST", 5) == 0) event->method = METHOD_POST;
     else goto err;
     event->uri = multiToken(NULL, " ", &internal_ptr);
     multiToken(NULL, "\r\n", &internal_ptr); // Protocol version
@@ -133,7 +154,7 @@ int listenDispatch(ListenerState *listener, int timeout)
                 struct epoll_event event = { .data.fd = new_fd, .events = EPOLL_FLAGS };
                 if (epoll_ctl(listener->epoll_fd, EPOLL_CTL_ADD, new_fd, &event) < 0) perror("ctl");
             }
-            else
+            else if (event_buffer[i].events & EPOLLIN)
             {
                 puts("Handling Event");
                 sem_wait(&listener->thread_pool_sem);
@@ -145,6 +166,12 @@ int listenDispatch(ListenerState *listener, int timeout)
                 free_thread->socket = event_buffer[i].data.fd;
                 pthread_cond_signal(&free_thread->start);
                 pthread_mutex_unlock(&free_thread->lock);
+            }
+            else
+            {
+                puts("EPOLLRDHUP");
+                epoll_ctl(listener->epoll_fd, EPOLL_CTL_DEL, event_buffer[i].data.fd, NULL);
+                close(event_buffer[i].data.fd);
             }
         }
     }

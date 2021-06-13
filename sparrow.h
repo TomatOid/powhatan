@@ -76,7 +76,8 @@ enum HttpMethod
 {
     METHOD_INVALID,
     METHOD_GET,
-    MEHTOD_POST,
+    METHOD_POST,
+    METHOD_CLOSE,
 };
 
 static char *request_field_strings[] = { "A-IM", "Accept", "Accept-Charset", "Accept-Datetime", "Accept-Encoding", "Access-Control-Request-Headers", "Access-Control-Request-Method", "Authorization", "Cache-Control", "Connection", "Content-Encoding", "Content-Length", "Content-MD5", "Content-Type", "Cookie", "Date", "Expect", "Forewarded", "From", "Host", };
