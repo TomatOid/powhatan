@@ -77,13 +77,14 @@ int awaitJob(ListenerState *listener, ThreadConnection *thread_connect, HttpRequ
         read_return = read(thread_connect->socket, event->message_buffer, MAX_MESSAGE_CHARS - 1);
         int read_error = errno;
         
-        if (read_return < 0) 
+        if (read_return < 0)
         {
             printf("%d\n", read_error);
             goto err;
         }
         if (!read_return)
         {
+            epoll_ctl(listener->epoll_fd, EPOLL_CTL_DEL, thread_connect->socket, NULL);
             close(thread_connect->socket);
         }
     } while (!read_return);

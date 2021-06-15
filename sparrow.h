@@ -9,9 +9,12 @@
 #include <stddef.h>
 
 // System includes
+#include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <sys/mman.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #include <arpa/inet.h>
 
